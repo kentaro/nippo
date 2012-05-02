@@ -1,0 +1,3 @@
+[submodule "modules/carton"]
+	path = modules/carton
+	url = https://github.com/miyagawa/carton.git

@@ -1,0 +1,180 @@
+#!/usr/bin/env perl
+
+package Nippo::Config;
+use utf8;
+use strict;
+use warnings;
+
+use Config::Pit qw(pit_get);
+use Class::Accessor::Lite (
+    new => 0,
+    rw  => [qw(username password)],
+);
+
+sub new {
+    my $class  = shift;
+    my $config = pit_get('tanpaku.grouptube.jp' => require => {
+        username => 'username required',
+        password => 'username required',
+    });
+
+    bless $config, $class;
+}
+
+package Nippo::UA;
+use utf8;
+use strict;
+use warnings;
+
+use URI::QueryParam;
+use WWW::Mechanize;
+use Class::Accessor::Lite (
+    new => 0,
+    rw  => [qw(ua config)],
+);
+
+use Readonly;
+Readonly my $domain => 'http://tanpaku.grouptube.jp';
+
+sub new {
+    my ($class, $config) = @_;
+    bless {
+        ua     => WWW::Mechanize->new,
+        config => $config,
+    }, $class;
+}
+
+sub login {
+    my $self = shift;
+       $self->ua->get("$domain/?mode=login");
+       $self->ua->submit_form(
+           form_number => 1,
+           fields =>  {
+               login_name     => $self->config->username,
+               login_password => $self->config->password,
+               set_cookie     => 1,
+           }
+       );
+
+    $self->is_logged_in
+        or die 'Failed to login. Please check your username/password!!1';
+}
+
+sub name {
+    my $self = shift;
+    my $name;
+
+    return $self->{_name} if defined $self->{_name};
+
+    $self->ua->get($domain);
+
+    if ($self->ua->content !~ m{<div class="error">}) {
+        my $username = $self->config->username;
+        ($name) = $self->ua->content =~ m{<div class="icon">.+?<strong>([^<]+)</strong>.+?</div>}ims;
+    }
+
+    $self->{_name} = $name;
+}
+
+sub is_logged_in {
+    my $self = shift;
+    !!$self->name
+}
+
+sub post {
+    my ($self, $entry) = @_;
+
+    $self->ua->get("$domain/diary/entry");
+    $self->ua->submit_form(
+        form_number => 2,
+        fields      => {
+            title       => $entry->title,
+            description => $entry->body,
+            tag         => '★日報',
+            flg_open    => 1,
+        },
+    );
+
+    printf "Posted: %s\n", $self->ua->uri;
+}
+
+package Nippo::Entry;
+use utf8;
+use strict;
+use warnings;
+
+use autodie;
+use FindBin;
+use File::Temp;
+use Time::Piece;
+use Class::Accessor::Lite (
+    new => 0,
+    rw  => [qw(name template title body)],
+);
+
+sub new {
+    my ($class, %args) = @_;
+    my $template;
+    my $file = delete $args{file} || "$FindBin::Bin/../template/default.txt";
+
+    $template = do { open my $fh, '<', $file; local $/ = undef; <$fh> };
+
+    bless {
+        %args,
+        template => $template,
+    }, $class;
+}
+
+sub write {
+    my $self   = shift;
+    my $editor = $ENV{EDITOR} || die 'Set $EDITOR first!!1';
+
+    my $file = File::Temp->new(SUFFIX => ".txt");
+    print $file $self->template;
+    close $file;
+
+    system $ENV{EDITOR}, $file->filename;
+
+    my $now   = localtime;
+    my $title = sprintf "【日報】%s　%s", $now->ymd, $self->name;
+    my $body  = do {
+        open my $fh, '<:utf8', $file->filename;
+        local $/ = undef;
+        <$fh>;
+    };
+
+    $self->title($title);
+    $self->body($body);
+    $self;
+}
+
+package Nippo;
+use utf8;
+use strict;
+use warnings;
+
+sub run {
+    my ($class, %args)  = @_;
+    my $config = Nippo::Config->new;
+    my $ua     = Nippo::UA->new($config);
+
+    $ua->login;
+
+    my $entry = Nippo::Entry->new(
+        name => $ua->name,
+        %args,
+    );
+
+    $ua->post($entry->write);
+}
+
+package main;
+use utf8;
+use strict;
+use warnings;
+use Getopt::Long;
+
+my %options;
+GetOptions('file=s' => \$options{file});
+
+Nippo->run(%options);
