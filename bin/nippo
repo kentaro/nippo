@@ -15,7 +15,7 @@ sub new {
     my $class  = shift;
     my $config = pit_get('tanpaku.grouptube.jp' => require => {
         username => 'username required',
-        password => 'username required',
+        password => 'password required',
     });
 
     bless $config, $class;
