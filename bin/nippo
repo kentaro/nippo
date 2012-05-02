@@ -109,7 +109,7 @@ use File::Temp;
 use Time::Piece;
 use Class::Accessor::Lite (
     new => 0,
-    rw  => [qw(name template title body)],
+    rw  => [qw(name date template title body)],
 );
 
 sub new {
@@ -135,8 +135,8 @@ sub write {
 
     system $ENV{EDITOR}, $file->filename;
 
-    my $now   = localtime;
-    my $title = sprintf "【日報】%s　%s", $now->ymd, $self->name;
+    my $date  = $self->date || localtime->ymd;
+    my $title = sprintf "【日報】%s　%s", $date, $self->name;
     my $body  = do {
         open my $fh, '<:utf8', $file->filename;
         local $/ = undef;
@@ -175,6 +175,9 @@ use warnings;
 use Getopt::Long;
 
 my %options;
-GetOptions('file=s' => \$options{file});
+GetOptions(
+    'file=s' => \$options{file},
+    'date=s' => \$options{date},
+);
 
 Nippo->run(%options);
