@@ -143,6 +143,11 @@ sub write {
         <$fh>;
     };
 
+    if ( Encode::decode('utf8', $self->template) eq $body ) {
+        print "Quit posting.\n";
+        return;
+    }
+
     $self->title($title);
     $self->body($body);
     $self;
@@ -165,7 +170,8 @@ sub run {
         %args,
     );
 
-    $ua->post($entry->write);
+    $entry->write;
+    $ua->post($entry) if $entry->body;
 }
 
 package main;
