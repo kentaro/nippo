@@ -107,6 +107,7 @@ use autodie;
 use FindBin;
 use File::Temp;
 use Time::Piece;
+use Encode qw(encode_utf8);
 use Class::Accessor::Lite (
     new => 0,
     rw  => [qw(name date template title body)],
@@ -115,9 +116,13 @@ use Class::Accessor::Lite (
 sub new {
     my ($class, %args) = @_;
     my $template;
-    my $file = delete $args{file} || "$FindBin::Bin/../template/default.txt";
 
-    $template = do { open my $fh, '<', $file; local $/ = undef; <$fh> };
+    if (my $file = delete $args{file}) {
+        $template = do { open my $fh, '<:utf8', $file; local $/ = undef; <$fh> };
+    }
+    else {
+        $template = join '', <main::DATA>;
+    }
 
     bless {
         %args,
@@ -130,7 +135,7 @@ sub write {
     my $editor = $ENV{EDITOR} || die 'Set $EDITOR first!!1';
 
     my $file = File::Temp->new(SUFFIX => ".txt");
-    print $file $self->template;
+    print $file encode_utf8($self->template);
     close $file;
 
     system $ENV{EDITOR}, $file->filename;
@@ -143,7 +148,7 @@ sub write {
         <$fh>;
     };
 
-    if ( Encode::decode('utf8', $self->template) eq $body ) {
+    if ($self->template eq $body) {
         print "Quit posting.\n";
         return;
     }
@@ -187,3 +192,35 @@ GetOptions(
 );
 
 Nippo->run(%options);
+
+__DATA__
+━━━━━━━━━━━━━━━━━━━━━━━━━
+今日の業務時間合計: ○時間
+─────────────────────────
+
+1. 
+2. 
+
+━━━━━━━━━━━━━━━━━━━━━━━━━
+今日の業務内容
+─────────────────────────
+
+1. 
+
+
+
+2.
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━
+明日（来週）の業務内容
+─────────────────────────
+
+1.
+2.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━
+所感
+─────────────────────────
+

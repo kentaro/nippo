@@ -1,2 +1,12 @@
+.DS_Store
+MYMETA.*
+META.yml
+Makefile
+Makefile.old
+inc/
+pm_to_blib
+blib/
+*~
+docs/
 .carton/
 local/
