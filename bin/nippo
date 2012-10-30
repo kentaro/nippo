@@ -134,7 +134,7 @@ sub write {
     my $self   = shift;
     my $editor = $ENV{EDITOR} || die 'Set $EDITOR first!!1';
 
-    my $file = File::Temp->new(SUFFIX => ".txt");
+    my $file = File::Temp->new(SUFFIX => ".md");
     print $file encode_utf8($self->template);
     close $file;
 
