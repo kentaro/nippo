@@ -98,6 +98,15 @@ sub post {
     printf "Posted: %s\n", $self->ua->uri;
 }
 
+sub search_entry_body {
+    my ($self, @params) = @_;
+    my $res = $self->ua->post("$domain/api/ajax/diary.php", {
+        action => "get",
+        @params,
+    });
+    return $res->decoded_content;
+}
+
 package Nippo::Entry;
 use utf8;
 use strict;
@@ -125,8 +134,8 @@ sub new {
     }
 
     bless {
-        %args,
         template => $template,
+        %args,
     }, $class;
 }
 
@@ -170,8 +179,17 @@ sub run {
 
     $ua->login;
 
+    # 前回のを使いまわす場合、ここで取得する
+    my $template;
+    if (delete $args{prev}) {
+        $template = $ua->search_entry_body(
+            tg => "日報",
+        );
+    }
+
     my $entry = Nippo::Entry->new(
-        name => $ua->name,
+        name     => $ua->name,
+        template => $template,
         %args,
     );
 
@@ -189,10 +207,12 @@ my %options;
 GetOptions(
     'file=s' => \$options{file},
     'date=s' => \$options{date},
+    'prev'   => \$options{prev},
 );
 
-Nippo->run(%options);
+Nippo->run(%options) if not caller;
 
+1;
 __DATA__
 ## 今日の業務
 
