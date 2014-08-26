@@ -90,7 +90,7 @@ sub post {
         fields      => {
             title       => $entry->title,
             description => $entry->body,
-            tag         => '★日報',
+            tag         => '日報',
             flg_open    => 1,
         },
     );
@@ -124,19 +124,7 @@ use Class::Accessor::Lite (
 
 sub new {
     my ($class, %args) = @_;
-    my $template;
-
-    if (my $file = delete $args{file}) {
-        $template = do { open my $fh, '<:utf8', $file; local $/ = undef; <$fh> };
-    }
-    else {
-        $template = join '', <main::DATA>;
-    }
-
-    bless {
-        template => $template,
-        %args,
-    }, $class;
+    bless \%args, $class;
 }
 
 sub write {
@@ -176,15 +164,20 @@ sub run {
     my ($class, %args)  = @_;
     my $config = Nippo::Config->new;
     my $ua     = Nippo::UA->new($config);
+       $ua->login;
 
-    $ua->login;
-
-    # 前回のを使いまわす場合、ここで取得する
     my $template;
-    if (delete $args{prev}) {
+
+    if (my $file = delete $args{file}) {
+        $template = do { open my $fh, '<:utf8', $file; local $/ = undef; <$fh> };
+    }
+    elsif (delete $args{prev}) {
         $template = $ua->search_entry_body(
             tg => "日報",
         );
+    }
+    else {
+        $template = join '', <main::DATA>;
     }
 
     my $entry = Nippo::Entry->new(
